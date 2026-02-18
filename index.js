@@ -24,4 +24,4 @@ const server = new SMTPServer({
 });
 
 
-server.listen(2525, () => { console.log('--| smpt server running on th epor t o 2525 |--') })
+server.listen(25, () => { console.log('--| smpt server running on th epor t o 25 run again on 25 |--') })
