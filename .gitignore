@@ -1,0 +1,66 @@
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json.lock
+.pnpm-debug.log
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# SSL keys, certs, private material
+*.key
+*.pem
+*.pfx
+*.crt
+certs/
+keys/
+secrets/
+*.jks
+
+# Build / artifacts
+dist/
+build/
+lib/
+out/
+coverage/
+.nyc_output/
+tsconfig.tsbuildinfo
+*.map
+
+# Logs, runtime files, temp
+logs/
+*.log
+pids/
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+uploads/
+spool/
+mail.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+
+# Caches
+.cache/
+.parcel-cache/
+.cache-loader/
+.next/
+.nuxt/
+
+# Misc
+eslint-debug.log
+.eslintcache
