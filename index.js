@@ -1,7 +1,7 @@
 const { SMTPServer } = require("smtp-server");
 
 const server = new SMTPServer({
-    
+
     allowInsecureAuth:true,
     authOptional:true,
     onConnect(session, cb) {
@@ -24,4 +24,4 @@ const server = new SMTPServer({
 });
 
 
-server.listen(25, () => { console.log('--| smpt server running on th epor t o 25 |--') })
+server.listen(2525, () => { console.log('--| smpt server running on th epor t o 2525 |--') })
