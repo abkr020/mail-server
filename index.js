@@ -1,6 +1,7 @@
 const { SMTPServer } = require("smtp-server");
 
 const server = new SMTPServer({
+    
     allowInsecureAuth:true,
     authOptional:true,
     onConnect(session, cb) {
