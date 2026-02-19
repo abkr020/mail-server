@@ -1,18 +1,11 @@
-const { getDB } = require("../config/db");
-
-function mailsCollection() {
-  return getDB().collection("mails");
-}
+const Mail = require("./mail.schema");
 
 async function saveMail({ from, to, raw }) {
-  return mailsCollection().insertOne({
-    from,
-    to,
-    raw,
-    receivedAt: new Date(),
-  });
+    return Mail.create({
+        from,
+        to,
+        raw,
+    });
 }
 
-module.exports = {
-  saveMail,
-};
+module.exports = { saveMail };
