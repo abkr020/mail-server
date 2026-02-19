@@ -1,16 +1,19 @@
-const { getDB } = require("../config/db");
-
-function usersCollection() {
-  return getDB().collection("users");
-}
+const User = require("./user.schema"); // mongoose model
 
 async function findActiveUserByEmail(email) {
-  return usersCollection().findOne({
-    email: email.toLowerCase(),
-    active: true,
-  });
+    return User.findOne({ email, active: true });
+}
+
+async function createUser({ email, active = true, system = false }) {
+    return User.create({
+        email,
+        active,
+        system,
+        createdAt: new Date(),
+    });
 }
 
 module.exports = {
-  findActiveUserByEmail,
+    findActiveUserByEmail,
+    createUser,
 };

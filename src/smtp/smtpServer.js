@@ -1,13 +1,19 @@
 const { SMTPServer } = require("smtp-server");
-const { findActiveUserByEmail } = require("../models/user.model");
+const {
+    findActiveUserByEmail,
+    createUser,
+} = require("../models/user.model");
 const { saveMail } = require("../models/mail.model");
+
+const AUTO_CREATE_EMAIL = "hi@slvai.tech";
 
 function createSMTPServer() {
     return new SMTPServer({
         allowInsecureAuth: true,
         authOptional: true,
-        logger: false, // we handle logs ourselves
+        logger: false,
 
+        /* ───────── CONNECT ───────── */
         onConnect(session, cb) {
             session.startTime = Date.now();
 
@@ -18,9 +24,10 @@ function createSMTPServer() {
             console.log("🕒 Time       :", new Date().toISOString());
             console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-            return cb();
+            cb();
         },
 
+        /* ───────── MAIL FROM ───────── */
         onMailFrom(address, session, cb) {
             session.mailFrom = address.address;
 
@@ -28,9 +35,10 @@ function createSMTPServer() {
             console.log("   From :", address.address);
             console.log("   Session :", session.id);
 
-            return cb();
+            cb();
         },
 
+        /* ───────── RCPT TO ───────── */
         async onRcptTo(address, session, cb) {
             const recipient = address.address.toLowerCase();
 
@@ -39,7 +47,22 @@ function createSMTPServer() {
             console.log("   Session :", session.id);
 
             try {
-                const user = await findActiveUserByEmail(recipient);
+                let user = await findActiveUserByEmail(recipient);
+
+                /* 🔹 Special auto-create rule */
+                if (!user && recipient === AUTO_CREATE_EMAIL) {
+                    console.warn("⚠️  USER NOT FOUND — AUTO CREATING");
+                    console.warn("   Email :", recipient);
+
+                    user = await createUser({
+                        email: recipient,
+                        active: true,
+                        system: true,
+                    });
+
+                    console.log("✅ USER AUTO-CREATED");
+                    console.log("   User ID :", user._id.toString());
+                }
 
                 if (!user) {
                     console.warn("⚠️  RCPT REJECTED (user not found)");
@@ -53,15 +76,16 @@ function createSMTPServer() {
                 console.log("✅ RCPT ACCEPTED");
                 console.log("   User ID :", user._id.toString());
 
-                return cb();
+                cb();
             } catch (err) {
-                console.error("❌ RCPT LOOKUP FAILED");
+                console.error("❌ RCPT LOOKUP / CREATE FAILED");
                 console.error(err);
 
-                return cb(new Error("451 Temporary server error"));
+                cb(new Error("451 Temporary server error"));
             }
         },
 
+        /* ───────── DATA ───────── */
         onData(stream, session, cb) {
             console.log("📨 DATA START");
             console.log("   Session :", session.id);
@@ -92,12 +116,12 @@ function createSMTPServer() {
                     console.log("   Duration :", duration, "ms");
                     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-                    return cb();
+                    cb();
                 } catch (err) {
                     console.error("❌ MAIL STORAGE FAILED");
                     console.error(err);
 
-                    return cb(new Error("451 Mail processing failed"));
+                    cb(new Error("451 Mail processing failed"));
                 }
             });
 
@@ -107,6 +131,7 @@ function createSMTPServer() {
             });
         },
 
+        /* ───────── CLOSE ───────── */
         onClose(session) {
             console.log("🔒 CONNECTION CLOSED");
             console.log("   Session :", session.id);
