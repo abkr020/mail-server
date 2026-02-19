@@ -2,8 +2,8 @@ const { SMTPServer } = require("smtp-server");
 
 const server = new SMTPServer({
 
-    allowInsecureAuth:true,
-    authOptional:true,
+    allowInsecureAuth: true,
+    authOptional: true,
     onConnect(session, cb) {
         console.log(`on connect part run -- session ${session?.id}`);
         cb()
@@ -18,8 +18,8 @@ const server = new SMTPServer({
     },
     onData(stream, session, cb) {
         stream.on('data', data => console.log(`on data run - ${data.toString()}`))
-        stream.on('end', cb())
-
+        // stream.on('end', cb())
+        stream.on('end', () => cb())
     }
 });
 
