@@ -1,38 +1,17 @@
-const { MongoClient } = require("mongodb");
-
-let client;
-let db;
+const mongoose = require("mongoose");
 
 async function connectDB(uri, dbName) {
-    if (db) return db;
+    if (!uri) throw new Error("MONGO_URI missing");
+    if (!dbName) throw new Error("DB_NAME missing");
 
-    if (!uri) throw new Error("MONGO_URI is missing");
-    if (!dbName) throw new Error("DB_NAME is missing");
+    mongoose.set("bufferCommands", false); // 🚨 critical for SMTP
 
-    client = new MongoClient(uri, {
-        maxPoolSize: 10,
+    await mongoose.connect(uri, {
+        dbName,
         serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
     });
 
-    await client.connect();
-
-    db = client.db(dbName);
-
-    console.log("✅ MongoDB connected");
-    console.log("📦 Database:", dbName);
-
-    return db;
+    console.log("✅ MongoDB (Mongoose) connected");
 }
 
-function getDB() {
-    if (!db) {
-        throw new Error("❌ Database not initialized");
-    }
-    return db;
-}
-
-module.exports = {
-    connectDB,
-    getDB,
-};
+module.exports = connectDB;
