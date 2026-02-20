@@ -1,29 +1,32 @@
 const { SMTPServer } = require("smtp-server");
+const { simpleParser } = require("mailparser");
 const {
     findActiveUserByEmail,
     createUser,
 } = require("../models/user.model");
 const { saveMail } = require("../models/mail.model");
-const { simpleParser } = require("mailparser");
+const logger = require("../utils/logger");
 
 const AUTO_CREATE_EMAIL = "hi@slvai.tech";
 
 function createSMTPServer() {
     return new SMTPServer({
+        disabledCommands: ["STARTTLS"],   // 🔥 prevent TLS crashes
         allowInsecureAuth: true,
         authOptional: true,
         logger: false,
+        size: 10 * 1024 * 1024,           // 🔒 10MB limit
 
         /* ───────── CONNECT ───────── */
         onConnect(session, cb) {
             session.startTime = Date.now();
 
-            console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            console.log("🔌 CONNECT");
-            console.log("🆔 Session ID :", session.id);
-            console.log("🌍 Remote IP :", session.remoteAddress);
-            console.log("🕒 Time       :", new Date().toISOString());
-            console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            logger.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            logger.log("🔌 CONNECT");
+            logger.log("🆔 Session ID :", session.id);
+            logger.log("🌍 Remote IP :", session.remoteAddress);
+            logger.log("🕒 Time       :", new Date().toISOString());
+            logger.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
             cb();
         },
@@ -32,10 +35,7 @@ function createSMTPServer() {
         onMailFrom(address, session, cb) {
             session.mailFrom = address.address;
 
-            console.log("📤 MAIL FROM");
-            console.log("   From :", address.address);
-            console.log("   Session :", session.id);
-
+            logger.log("📤 MAIL FROM", address.address, session.id);
             cb();
         },
 
@@ -43,17 +43,13 @@ function createSMTPServer() {
         async onRcptTo(address, session, cb) {
             const recipient = address.address.toLowerCase();
 
-            console.log("📥 RCPT TO");
-            console.log("   To :", recipient);
-            console.log("   Session :", session.id);
+            logger.log("📥 RCPT TO", recipient, session.id);
 
             try {
                 let user = await findActiveUserByEmail(recipient);
 
-                /* 🔹 Special auto-create rule */
                 if (!user && recipient === AUTO_CREATE_EMAIL) {
-                    console.warn("⚠️  USER NOT FOUND — AUTO CREATING");
-                    console.warn("   Email :", recipient);
+                    logger.warn("⚠️ AUTO-CREATING USER", recipient);
 
                     user = await createUser({
                         email: recipient,
@@ -61,45 +57,45 @@ function createSMTPServer() {
                         system: true,
                     });
 
-                    console.log("✅ USER AUTO-CREATED");
-                    console.log("   User ID :", user._id.toString());
+                    logger.log("✅ USER AUTO-CREATED", user._id.toString());
                 }
 
                 if (!user) {
-                    console.warn("⚠️  RCPT REJECTED (user not found)");
-                    console.warn("   Recipient :", recipient);
-
+                    logger.warn("❌ RCPT REJECTED", recipient);
                     return cb(new Error("550 5.1.1 No such user"));
                 }
 
                 session.user = user;
-
-                console.log("✅ RCPT ACCEPTED");
-                console.log("   User ID :", user._id.toString());
-
+                logger.log("✅ RCPT ACCEPTED", user._id.toString());
                 cb();
             } catch (err) {
-                console.error("❌ RCPT LOOKUP / CREATE FAILED");
-                console.error(err);
-
+                logger.error("❌ RCPT ERROR", err);
                 cb(new Error("451 Temporary server error"));
             }
         },
 
         /* ───────── DATA ───────── */
         onData(stream, session, cb) {
-            console.log("📨 DATA START");
-            console.log("   Session :", session.id);
+            if (!session.user) {
+                logger.error("❌ DATA without valid session");
+                return cb(new Error("554 Invalid session"));
+            }
+
+            logger.log("📨 DATA START", session.id);
 
             simpleParser(stream)
                 .then(async parsed => {
                     const mailData = {
-                        from: session.mailFrom,
-                        to: session.user.email,
+                        envelopeFrom: session.mailFrom,
+                        headerFrom: parsed.from?.text || session.mailFrom,
+                        to: session.user.email.toLowerCase(),
 
                         subject: parsed.subject || "(no subject)",
                         text: parsed.text || "",
-                        html: parsed.html || "",
+                        html:
+                            typeof parsed.html === "string"
+                                ? parsed.html
+                                : parsed.html?.toString() || "",
 
                         messageId: parsed.messageId,
                         date: parsed.date || new Date(),
@@ -115,27 +111,25 @@ function createSMTPServer() {
 
                     const duration = Date.now() - session.startTime;
 
-                    console.log("📦 MAIL STORED SUCCESSFULLY");
-                    console.log("   To :", mailData.to);
-                    console.log("   Subject :", mailData.subject);
-                    console.log("   Attachments :", mailData.attachments.length);
-                    console.log("   Duration :", duration, "ms");
-                    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    logger.log("📦 MAIL STORED");
+                    logger.log("   To:", mailData.to);
+                    logger.log("   Subject:", mailData.subject);
+                    logger.log("   Attachments:", mailData.attachments.length);
+                    logger.log("   Duration:", duration, "ms");
+                    logger.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
                     cb();
                 })
                 .catch(err => {
-                    console.error("❌ MAIL PARSE / STORE FAILED");
-                    console.error(err);
+                    logger.error("❌ MAIL PARSE FAILED", err);
                     cb(new Error("451 Mail processing failed"));
                 });
         },
 
         /* ───────── CLOSE ───────── */
         onClose(session) {
-            console.log("🔒 CONNECTION CLOSED");
-            console.log("   Session :", session.id);
-            console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            logger.log("🔒 CONNECTION CLOSED", session.id);
+            logger.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
         },
     });
 }
