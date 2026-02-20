@@ -1,11 +1,7 @@
 const Mail = require("./mail.schema");
 
-async function saveMail({ from, to, raw }) {
-    return Mail.create({
-        from,
-        to,
-        raw,
-    });
+async function saveMail(mailData) {
+  return Mail.create(mailData);
 }
 
 module.exports = { saveMail };

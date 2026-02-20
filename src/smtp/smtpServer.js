@@ -4,6 +4,7 @@ const {
     createUser,
 } = require("../models/user.model");
 const { saveMail } = require("../models/mail.model");
+const { simpleParser } = require("mailparser");
 
 const AUTO_CREATE_EMAIL = "hi@slvai.tech";
 
@@ -90,45 +91,44 @@ function createSMTPServer() {
             console.log("📨 DATA START");
             console.log("   Session :", session.id);
 
-            let raw = "";
-            let size = 0;
-
-            stream.on("data", chunk => {
-                size += chunk.length;
-                raw += chunk.toString();
-            });
-
-            stream.on("end", async () => {
-                console.log("📨 DATA END");
-                console.log("   Size :", size, "bytes");
-
-                try {
-                    await saveMail({
+            simpleParser(stream)
+                .then(async parsed => {
+                    const mailData = {
                         from: session.mailFrom,
                         to: session.user.email,
-                        raw,
-                    });
+
+                        subject: parsed.subject || "(no subject)",
+                        text: parsed.text || "",
+                        html: parsed.html || "",
+
+                        messageId: parsed.messageId,
+                        date: parsed.date || new Date(),
+
+                        attachments: (parsed.attachments || []).map(att => ({
+                            filename: att.filename,
+                            contentType: att.contentType,
+                            size: att.size,
+                        })),
+                    };
+
+                    await saveMail(mailData);
 
                     const duration = Date.now() - session.startTime;
 
                     console.log("📦 MAIL STORED SUCCESSFULLY");
-                    console.log("   To :", session.user.email);
+                    console.log("   To :", mailData.to);
+                    console.log("   Subject :", mailData.subject);
+                    console.log("   Attachments :", mailData.attachments.length);
                     console.log("   Duration :", duration, "ms");
                     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
                     cb();
-                } catch (err) {
-                    console.error("❌ MAIL STORAGE FAILED");
+                })
+                .catch(err => {
+                    console.error("❌ MAIL PARSE / STORE FAILED");
                     console.error(err);
-
                     cb(new Error("451 Mail processing failed"));
-                }
-            });
-
-            stream.on("error", err => {
-                console.error("❌ STREAM ERROR");
-                console.error(err);
-            });
+                });
         },
 
         /* ───────── CLOSE ───────── */
