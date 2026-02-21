@@ -87,6 +87,7 @@ function createSMTPServer() {
                 .then(async parsed => {
                     const mailData = {
                         envelopeFrom: session.mailFrom,
+                        from: session.mailFrom,
                         headerFrom: parsed.from?.text || session.mailFrom,
                         to: session.user.email.toLowerCase(),
 
