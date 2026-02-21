@@ -7,7 +7,7 @@ const {
 const { saveMail } = require("../models/mail.model");
 const logger = require("../utils/logger");
 
-const AUTO_CREATE_EMAIL = "hi@slvai.tech";
+const AUTO_CREATE_EMAIL = "ak@slvai.tech";
 
 function createSMTPServer() {
     return new SMTPServer({
